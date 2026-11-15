@@ -137,6 +137,17 @@ def _linux_gpus():
     return out
 
 
+def _apple_silicon_linux(tree='/proc/device-tree'):
+    """The model name of an Apple silicon computer running Linux, else None. The kernel's device tree names it ("apple,t8103"); its
+    graphics are not on a PCI bus, so _linux_gpus finds no card, and they share the computer's one memory like on a Mac."""
+    try:
+        if not any(c.startswith(b'apple,') for c in (Path(tree) / 'compatible').read_bytes().split(b'\0')):
+            return None
+        return (Path(tree) / 'model').read_bytes().split(b'\0')[0].decode('utf-8', 'replace') or 'Apple silicon'
+    except OSError:
+        return None
+
+
 def _nvidia_card(dev, name, vram):
     """The model name from the NVIDIA driver's /proc/driver/nvidia/gpus/<bus id>/information. Its memory is not in a file the driver
     keeps for everyone, so it comes from the PCI BAR the card maps for its memory when that is the full size (resizable BAR), else 0."""
@@ -294,6 +305,8 @@ def detect(extra_disks=()):
             gpus = _windows_gpus()
         elif name == 'linux':
             gpus = _linux_gpus()
+            if model := _apple_silicon_linux():
+                gpus, unified = [{'name': model, 'vram_bytes': 0}], True
     except Exception as e:      # a strange driver must not stop setup: it then estimates from what it has
         print('setup: hardware detection:', type(e).__name__, e, flush=True)
     out = {'os': name, 'arch': arch(), 'ram_bytes': ram, 'unified_memory': unified, 'gpus': gpus, 'disks': candidate_disks(extra_disks)}

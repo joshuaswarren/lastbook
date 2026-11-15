@@ -1266,6 +1266,16 @@ class Recommend(Base):
         self.assertTrue(hardware.estimate_ai(16 * 2 ** 30, [{'name': 'RTX', 'vram_bytes': 12 * 2 ** 30}], False, 19_027_384_256)['fits'])
         self.assertTrue(hardware.estimate_ai(32 * 2 ** 30, [], True, 19_027_384_256)['estimate'])
 
+    def test_apple_silicon_on_linux(self):
+        tree = Path(self.parent) / 'device-tree'
+        tree.mkdir(parents=True)
+        self.assertIsNone(hardware._apple_silicon_linux(tree))
+        (tree / 'compatible').write_bytes(b'apple,j293\0apple,t8103\0apple,arm-platform\0')
+        (tree / 'model').write_bytes(b'Apple MacBook Pro (13-inch, M1, 2020)\0')
+        self.assertEqual(hardware._apple_silicon_linux(tree), 'Apple MacBook Pro (13-inch, M1, 2020)')
+        (tree / 'compatible').write_bytes(b'raspberrypi,5-model-b\0brcm,bcm2712\0')
+        self.assertIsNone(hardware._apple_silicon_linux(tree))
+
     def test_pack_and_ai_by_space(self):
         s = self.setup()
         with mock.patch.object(hardware, 'disk_of', lambda p: (10 ** 12, 2 * 10 ** 12)):
